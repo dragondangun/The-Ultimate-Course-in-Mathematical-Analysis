@@ -840,6 +840,15 @@ function countAllCounters(items) {
   return n;
 }
 
+// Округление процента строго вниз до сотых, без изменения числового прогресса.
+function progressPercentFloor(done, total) {
+  return total > 0 ? Math.floor((done * 10000) / total) / 100 : 0;
+}
+
+function progressPercentLabel(percent) {
+  return percent.toFixed(2).replace('.', ',') + '%';
+}
+
 function counterProgress(items) {
   let done = 0, total = 0;
   for (const item of items) {
@@ -988,10 +997,8 @@ function render() {
   let totalCounters = 0;
 
   DATA.themes.forEach((theme, themeIndex) => {
-    totalItems += theme.sections.reduce((s, sec) => s + countAllItems(sec.items), 0);
-    totalCounters += theme.sections.reduce((s, sec) => s + countAllCounters(sec.items), 0);
-
     const tStats = themeStats(theme);
+    totalItems += tStats.total;
     doneItems += tStats.done;
 
     const details = document.createElement('details');
@@ -1058,13 +1065,14 @@ function render() {
     themeStatsList.innerHTML = '';
     DATA.themes.forEach((theme) => {
       const stats = themeStats(theme);
-      const percent = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
+      const percent = progressPercentFloor(stats.done, stats.total);
+      const percentText = progressPercentLabel(percent);
       const row = document.createElement('div');
       row.className = 'theme-stat-row';
       row.innerHTML = `
         <div class="theme-stat-head">
           <div class="theme-stat-name">${theme.num}. ${theme.title}</div>
-          <div class="theme-stat-val">${stats.done} / ${stats.total} · ${percent}%</div>
+          <div class="theme-stat-val">${stats.done} / ${stats.total} · ${percentText}</div>
         </div>
         <div class="theme-stat-bar"><span style="width:${percent}%"></span></div>
       `;
@@ -1072,14 +1080,18 @@ function render() {
     });
   }
 
-  const percent = totalItems ? Math.round((doneItems / totalItems) * 100) : 0;
+  const percent = progressPercentFloor(doneItems, totalItems);
   const cp = counterProgress(DATA.themes.flatMap(t => t.sections).flatMap(s => s.items));
-  const counterPercent = cp.total ? Math.round((cp.done / cp.total) * 100) : 0;
+  const counterPercent = progressPercentFloor(cp.done, cp.total);
+  const percentText = progressPercentLabel(percent);
+  const counterPercentText = progressPercentLabel(counterPercent);
   document.getElementById('overallDone').textContent = doneItems;
   document.getElementById('overallTotal').textContent = totalItems;
-  document.getElementById('overallPercent').textContent = percent + '%';
-  document.getElementById('overallCaption').textContent = percent + '%';
-  document.getElementById('counterCaption').textContent = counterPercent + '%';
+  document.getElementById('overallPercent').textContent = percentText;
+  document.getElementById('overallCaption').textContent = percentText;
+  // Суммируем фактические выполненные и доступные значения всех счётчиков.
+  document.getElementById('counterCaption').textContent =
+    `${cp.done.toLocaleString('ru-RU')} / ${cp.total.toLocaleString('ru-RU')} · ${counterPercentText}`;
   document.getElementById('overallBar').style.width = percent + '%';
   document.getElementById('counterBar').style.width = counterPercent + '%';
   document.getElementById('overallRing').style.setProperty('--p', percent);
